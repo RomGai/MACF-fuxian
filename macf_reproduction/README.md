@@ -39,6 +39,14 @@ python retrieval_baselines.py \
 - 会实时打印处理进度与“已处理用户平均指标”（HR/NDCG @10/@20/@40）。
 - 结果会写入：`<output-dir>/macf_eval_result.json`。
 
+
+支持的 query_data 字段别名包括：
+- query: `query` / `new_query`
+- history: `history_item_ids` / `remaining_interaction_string`（可缺省）
+- target: `target_item_id` / `targets`
+
+metadata 可使用：`id/item_id` + `title` + `description` + `category/categories` + `price`。
+
 ## 测试
 ```bash
 cd macf_reproduction
