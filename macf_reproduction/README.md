@@ -16,7 +16,15 @@
 - DAR（动态招募）、PCI（个性化协作指令）、ATU（自适应工具使用）
 - 多轮讨论 `Tmax=5`
 - 最终推荐 `Top-K=10`
-- LLM 配置抽象：`model=gpt-4o`, `temperature=0.3`
+
+## LLM Policy（已切换为 Qwen3-8B）
+- 默认配置已改为：
+  - `provider: qwen_local`
+  - `model: Qwen/Qwen3-8B`
+  - `temperature: 0.3`
+  - `enable_thinking: true`
+- 对应实现：`src/macf/llm.py` 中 `QwenLocalBackend`。
+- 若环境缺少 `transformers/torch` 或模型不可下载，会自动回退到 deterministic fallback（保证流程可运行）。
 
 ## 新增：适配 `amazon_beauty` 数据评测
 支持使用：
@@ -52,6 +60,14 @@ PYTHONPATH=src python -m macf.main \
 - `metrics.hit@20, metrics.ndcg@20`
 - `metrics.hit@40, metrics.ndcg@40`
 - 每条样本的 `rank`（target 排名，未命中为 null）
+
+## Qwen 官方调用对齐说明
+仓库中的 `QwenLocalBackend` 采用与官方示例一致的核心流程：
+- `AutoTokenizer.from_pretrained("Qwen/Qwen3-8B")`
+- `AutoModelForCausalLM.from_pretrained(..., torch_dtype="auto", device_map="auto")`
+- `apply_chat_template(..., enable_thinking=True)`
+- `model.generate(..., max_new_tokens=...)`
+- 兼容 `</think>` 分段解析（token id `151668`）
 
 ## 说明：哪些是重建假设
 - prompt 的精确措辞

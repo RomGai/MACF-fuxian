@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from ..agents import ItemAgent, OrchestratorAgent, UserAgent
+from ..llm import LLMBackend, MockLLMBackend
 from ..types import AgentMessage, DiscussionRound, MACFSessionState, RankedItem
 
 logger = logging.getLogger(__name__)
@@ -22,20 +23,21 @@ def _finalize_top_k(state: MACFSessionState, tools) -> None:
     state.final_ranked_items = final_items[: state.top_k]
 
 
-def run_discussion(state: MACFSessionState, tools, default_n: int) -> MACFSessionState:
-    orch = OrchestratorAgent()
+def run_discussion(state: MACFSessionState, tools, default_n: int, llm_backend: LLMBackend | None = None) -> MACFSessionState:
+    llm = llm_backend or MockLLMBackend()
+    orch = OrchestratorAgent(llm_backend=llm)
     ru, ri, instructions = orch.recruit_and_instruct(state.target_user, state.query.text, tools, default_n)
 
     similar_profiles = {u.user_id: u for u in tools.get_similar_users(state.target_user.user_id, max(default_n * 3, 20))}
     relevant_items = {i.item_id: i for i in tools.get_relevant_items(state.target_user.user_id, state.query.text, max(default_n * 3, 20))}
 
     user_agents = {
-        r["agent_id"]: UserAgent(agent_id=r["agent_id"], agent_type="user", similar_user=similar_profiles[r["similar_user_id"]])
+        r["agent_id"]: UserAgent(agent_id=r["agent_id"], agent_type="user", similar_user=similar_profiles[r["similar_user_id"]], llm_backend=llm)
         for r in ru
         if r["similar_user_id"] in similar_profiles
     }
     item_agents = {
-        r["agent_id"]: ItemAgent(agent_id=r["agent_id"], agent_type="item", anchor_item=relevant_items[r["history_item_id"]])
+        r["agent_id"]: ItemAgent(agent_id=r["agent_id"], agent_type="item", anchor_item=relevant_items[r["history_item_id"]], llm_backend=llm)
         for r in ri
         if r["history_item_id"] in relevant_items
     }

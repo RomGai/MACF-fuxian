@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .config import AppConfig
 from .data import build_target_user, load_metadata_csv, load_query_csv
+from .llm import build_llm_backend
 from .pipelines.discussion import run_discussion
 from .tools import CSVRetrievalTools
 from .types import MACFSessionState, QueryContext
@@ -29,6 +30,7 @@ def _calc_metrics(ranks: list[int | None], k: int) -> dict[str, float]:
 def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str) -> dict:
     items = load_metadata_csv(metadata_csv)
     records = load_query_csv(query_csv)
+    llm_backend = build_llm_backend(config.llm)
 
     rows: list[EvalRow] = []
     for rec in records:
@@ -40,7 +42,7 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str) -> d
             top_k=config.macf.top_k,
             max_rounds=config.macf.max_rounds,
         )
-        state = run_discussion(state, tools, default_n=config.macf.default_n)
+        state = run_discussion(state, tools, default_n=config.macf.default_n, llm_backend=llm_backend)
 
         ranked_ids = [x.item_id for x in state.final_ranked_items]
         rank = ranked_ids.index(rec.target_item_id) + 1 if rec.target_item_id in ranked_ids else None

@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .base import AgentBase
+from ..llm import LLMBackend, MockLLMBackend
+from ..prompts import (
+    ITEM_AGENT_INITIAL_PROMPT_TEMPLATE,
+    ITEM_AGENT_REFINE_PROMPT_TEMPLATE,
+    ITEM_AGENT_SYSTEM_PROMPT,
+)
 from ..types import CandidateItem, ItemProfile, TargetUser
 from ..tools.base import RetrievalTools
 
@@ -10,6 +16,7 @@ from ..tools.base import RetrievalTools
 @dataclass
 class ItemAgent(AgentBase):
     anchor_item: ItemProfile
+    llm_backend: LLMBackend = field(default_factory=MockLLMBackend)
 
     def act(
         self,
@@ -32,7 +39,7 @@ class ItemAgent(AgentBase):
             }
             for i, item in enumerate(pool[:6])
         ]
-        return {
+        fallback = {
             "action": "propose" if round_index == 0 else "revise",
             "anchor_analysis": f"{self.anchor_item.title} signals target preference for {'/'.join(self.anchor_item.tags)}.",
             "candidates": cands,
@@ -41,6 +48,11 @@ class ItemAgent(AgentBase):
             "ranking_feedback": "Strengthen anchor-consistent items.",
             "tool_calls_used": ["RetrieveByItem" if use_item else "RetrieveByQuery"],
         }
+        if round_index == 0:
+            prompt = ITEM_AGENT_INITIAL_PROMPT_TEMPLATE.format(item_json=str(self.anchor_item), target_user_json=str(target_user), query=query)
+        else:
+            prompt = ITEM_AGENT_REFINE_PROMPT_TEMPLATE.format(item_json=str(self.anchor_item), discussion_history_json="[]", draft_json="[]", instruction=instruction)
+        return self.llm_backend.generate_json(ITEM_AGENT_SYSTEM_PROMPT, prompt, fallback)
 
     def to_candidates(self, payload: dict) -> list[CandidateItem]:
         return [
@@ -51,4 +63,5 @@ class ItemAgent(AgentBase):
                 source_agent_id=self.agent_id,
             )
             for c in payload.get("candidates", [])
+            if all(k in c for k in ["item_id", "rationale", "confidence"])
         ]

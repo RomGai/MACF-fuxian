@@ -1,16 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from ..llm import LLMBackend, MockLLMBackend
+from ..prompts import (
+    ORCHESTRATOR_NEXT_ROUND_PROMPT_TEMPLATE,
+    ORCHESTRATOR_ROUND0_PROMPT_TEMPLATE,
+    ORCHESTRATOR_SYSTEM_PROMPT,
+)
 from ..ranking import build_ranked_draft
 from ..sufficiency import evaluate_sufficiency
-from ..types import AgentInstruction, CandidateItem, RankedListDraft, TargetUser
+from ..types import AgentInstruction, CandidateItem, TargetUser
 from ..tools.base import RetrievalTools
 
 
 @dataclass
 class OrchestratorAgent:
     agent_id: str = "orchestrator"
+    llm_backend: LLMBackend = field(default_factory=MockLLMBackend)
 
     def recruit_and_instruct(self, target: TargetUser, query: str, tools: RetrievalTools, n: int) -> tuple[list[dict], list[dict], list[AgentInstruction]]:
         similar_users = tools.get_similar_users(target.user_id, n)
@@ -29,6 +36,17 @@ class OrchestratorAgent:
             recruited_items.append({"agent_id": aid, "history_item_id": it.item_id, "why_recruited": "High query relevance from history"})
             instructions.append(AgentInstruction(aid, "item", f"Examine whether anchor item {it.title} is too broad for the query and refine."))
 
+        fallback = {
+            "decision": "continue",
+            "recruited_user_agents": recruited_users,
+            "recruited_item_agents": recruited_items,
+            "instructions": [{"agent_id": i.agent_id, "agent_type": i.agent_type, "instruction": i.instruction} for i in instructions],
+        }
+        _ = self.llm_backend.generate_json(
+            ORCHESTRATOR_SYSTEM_PROMPT,
+            ORCHESTRATOR_ROUND0_PROMPT_TEMPLATE.format(target_user_json=str(target), query=query, user_history_json=str(target.history_item_ids), n=n, K=10),
+            fallback,
+        )
         return recruited_users, recruited_items, instructions
 
     def decide_next(
@@ -42,7 +60,7 @@ class OrchestratorAgent:
         draft = build_ranked_draft(accumulated_candidates)
         suff = evaluate_sufficiency(draft, top_k)
         if suff.overall_pass or round_index >= max_rounds - 1:
-            return {
+            fallback_end = {
                 "decision": "end",
                 "draft": draft,
                 "sufficiency": suff,
@@ -50,6 +68,18 @@ class OrchestratorAgent:
                 "instructions": [],
                 "uncertainty_summary": "None" if suff.overall_pass else "Reached max rounds",
             }
+            _ = self.llm_backend.generate_json(
+                ORCHESTRATOR_SYSTEM_PROMPT,
+                ORCHESTRATOR_NEXT_ROUND_PROMPT_TEMPLATE.format(
+                    round_index=round_index,
+                    discussion_history_json="[]",
+                    candidates_json=str([c.item_id for c in accumulated_candidates[:20]]),
+                    draft_json=str([(x.rank, x.item_id) for x in draft.items[:20]]),
+                    K=top_k,
+                ),
+                {"decision": "end"},
+            )
+            return fallback_end
 
         reduced = prior_active_agents[: max(2, len(prior_active_agents) // 2)]
         instructions = [

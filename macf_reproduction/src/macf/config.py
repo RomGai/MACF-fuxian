@@ -6,9 +6,11 @@ from pathlib import Path
 
 @dataclass
 class LLMConfig:
-    provider: str = "mock"
-    model: str = "gpt-4o"
+    provider: str = "qwen_local"
+    model: str = "Qwen/Qwen3-8B"
     temperature: float = 0.3
+    max_new_tokens: int = 1024
+    enable_thinking: bool = True
 
 
 @dataclass
