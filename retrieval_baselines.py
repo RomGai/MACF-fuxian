@@ -22,6 +22,7 @@ def main() -> None:
     parser.add_argument("--query-data", required=True, help="Path to query_data1.csv")
     parser.add_argument("--output-dir", required=True, help="Directory to store evaluation artifacts")
     parser.add_argument("--config", default=str(REPO_ROOT / "macf_reproduction" / "config" / "default.yaml"), help="Path to MACF config file")
+    parser.add_argument("--top-k", type=int, default=40, help="Final recommendation cutoff K (default: 40).")
     parser.add_argument(
         "--query-only",
         action=argparse.BooleanOptionalAction,
@@ -48,6 +49,7 @@ def main() -> None:
         print("[Warning] --no-query-only is not supported in current baseline; forcing query-only retrieval.")
 
     cfg = load_config(args.config)
+    cfg.macf.top_k = args.top_k
     result = evaluate_from_csv(
         cfg,
         query_csv=args.query_data,
@@ -64,6 +66,7 @@ def main() -> None:
         "output_file": str(out_json),
         "retrieval_mode": "query_only",
         "verbose_agent_trace": args.verbose_agent_trace,
+        "top_k": cfg.macf.top_k,
         "metrics": result.get("metrics", {}),
         "num_cases": result.get("num_cases", 0),
     }

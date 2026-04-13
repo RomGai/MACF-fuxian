@@ -55,13 +55,21 @@ class ItemAgent(AgentBase):
         return self.llm_backend.generate_json(ITEM_AGENT_SYSTEM_PROMPT, prompt, fallback)
 
     def to_candidates(self, payload: dict) -> list[CandidateItem]:
-        return [
-            CandidateItem(
-                item_id=c["item_id"],
-                rationale=c["rationale"],
-                confidence=float(c["confidence"]),
-                source_agent_id=self.agent_id,
+        rows = list(payload.get("candidates", []))
+        rows.extend(payload.get("new_candidates", []))
+        out: list[CandidateItem] = []
+        for c in rows:
+            item_id = c.get("item_id")
+            if not item_id:
+                continue
+            rationale = c.get("rationale") or c.get("reason") or "Item-agent recommendation."
+            confidence = float(c.get("confidence", 0.5))
+            out.append(
+                CandidateItem(
+                    item_id=item_id,
+                    rationale=rationale,
+                    confidence=confidence,
+                    source_agent_id=self.agent_id,
+                )
             )
-            for c in payload.get("candidates", [])
-            if all(k in c for k in ["item_id", "rationale", "confidence"])
-        ]
+        return out

@@ -43,7 +43,7 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str, verb
     rows: list[EvalRow] = []
     total = len(records)
     for idx, rec in enumerate(records, start=1):
-        print(f"[Progress] Processing user {idx}/{total}: user_id={rec.user_id}")
+        print(f"[Progress] Processing user {idx}/{total}: user_id={rec.user_id}", flush=True)
         target_user = build_target_user(rec)
         tools = CSVRetrievalTools(items=items, query_records=records, current_target=target_user)
         state = MACFSessionState(
@@ -71,7 +71,8 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str, verb
             f"{idx} users | "
             f"HR@10={running['hit@10']:.4f}, NDCG@10={running['ndcg@10']:.4f}, "
             f"HR@20={running['hit@20']:.4f}, NDCG@20={running['ndcg@20']:.4f}, "
-            f"HR@40={running['hit@40']:.4f}, NDCG@40={running['ndcg@40']:.4f}"
+            f"HR@40={running['hit@40']:.4f}, NDCG@40={running['ndcg@40']:.4f}",
+            flush=True,
         )
 
     final_ranks = [r.rank for r in rows]

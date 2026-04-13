@@ -82,8 +82,9 @@ def run_discussion(
         logger.info("Sufficiency at round %s: %s", round_idx, decision["sufficiency"])
 
         if verbose_agent_trace:
-            draft_preview = [{"rank": x.rank, "item_id": x.item_id, "score": x.score} for x in state.draft.items[:10]]
-            print(f"[AgentTrace] Round {round_idx} draft_top10: {json.dumps(draft_preview, ensure_ascii=False)}")
+            preview_k = min(state.top_k, 40)
+            draft_preview = [{"rank": x.rank, "item_id": x.item_id, "score": x.score} for x in state.draft.items[:preview_k]]
+            print(f"[AgentTrace] Round {round_idx} draft_top{preview_k}: {json.dumps(draft_preview, ensure_ascii=False)}")
             print(f"[AgentTrace] Round {round_idx} decision: {decision['decision']} | suff={decision['sufficiency']}")
 
         if decision["decision"] == "end":

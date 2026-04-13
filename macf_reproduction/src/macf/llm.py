@@ -15,6 +15,22 @@ class LLMBackend:
         raise NotImplementedError
 
 
+def _merge_with_fallback(parsed: dict, fallback: dict) -> dict:
+    """Keep parsed content, but preserve critical fallback keys when missing/empty."""
+    out = dict(parsed)
+    for key, fallback_val in fallback.items():
+        if key not in out:
+            out[key] = fallback_val
+            continue
+        current = out[key]
+        if isinstance(current, dict) and isinstance(fallback_val, dict):
+            out[key] = _merge_with_fallback(current, fallback_val)
+            continue
+        if current in (None, "", []) and fallback_val not in (None, "", []):
+            out[key] = fallback_val
+    return out
+
+
 @dataclass
 class MockLLMBackend(LLMBackend):
     """Deterministic offline backend: returns fallback payload unchanged."""
@@ -85,7 +101,9 @@ class QwenLocalBackend(LLMBackend):
 
         content = self._tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
         parsed = self._extract_json(content)
-        return parsed if isinstance(parsed, dict) else fallback
+        if not isinstance(parsed, dict):
+            return fallback
+        return _merge_with_fallback(parsed, fallback)
 
 
 def build_llm_backend(cfg: LLMConfig) -> LLMBackend:
