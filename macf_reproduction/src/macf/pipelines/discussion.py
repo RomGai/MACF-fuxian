@@ -26,12 +26,23 @@ def run_discussion(state: MACFSessionState, tools, default_n: int) -> MACFSessio
     orch = OrchestratorAgent()
     ru, ri, instructions = orch.recruit_and_instruct(state.target_user, state.query.text, tools, default_n)
 
-    user_agents = {r["agent_id"]: UserAgent(agent_id=r["agent_id"], agent_type="user", similar_user=tools.similar_users[r["similar_user_id"]]) for r in ru}
-    item_agents = {r["agent_id"]: ItemAgent(agent_id=r["agent_id"], agent_type="item", anchor_item=tools.items[r["history_item_id"]]) for r in ri}
+    similar_profiles = {u.user_id: u for u in tools.get_similar_users(state.target_user.user_id, max(default_n * 3, 20))}
+    relevant_items = {i.item_id: i for i in tools.get_relevant_items(state.target_user.user_id, state.query.text, max(default_n * 3, 20))}
+
+    user_agents = {
+        r["agent_id"]: UserAgent(agent_id=r["agent_id"], agent_type="user", similar_user=similar_profiles[r["similar_user_id"]])
+        for r in ru
+        if r["similar_user_id"] in similar_profiles
+    }
+    item_agents = {
+        r["agent_id"]: ItemAgent(agent_id=r["agent_id"], agent_type="item", anchor_item=relevant_items[r["history_item_id"]])
+        for r in ri
+        if r["history_item_id"] in relevant_items
+    }
     all_agents = {**user_agents, **item_agents}
 
     active_ids = list(all_agents.keys())
-    current_instructions = {inst.agent_id: inst.instruction for inst in instructions}
+    current_instructions = {inst.agent_id: inst.instruction for inst in instructions if inst.agent_id in all_agents}
 
     for round_idx in range(state.max_rounds):
         round_obj = DiscussionRound(round_index=round_idx, active_agent_ids=active_ids, instructions=[i for i in instructions if i.agent_id in active_ids])
@@ -53,8 +64,8 @@ def run_discussion(state: MACFSessionState, tools, default_n: int) -> MACFSessio
             _finalize_top_k(state, tools)
             return state
 
-        active_ids = decision["selected_agents"]
-        current_instructions = {x["agent_id"]: x["instruction"] for x in decision["instructions"]}
+        active_ids = [x for x in decision["selected_agents"] if x in all_agents]
+        current_instructions = {x["agent_id"]: x["instruction"] for x in decision["instructions"] if x["agent_id"] in all_agents}
 
     _finalize_top_k(state, tools)
     return state
