@@ -32,9 +32,10 @@ def test_retrieval_baselines_script_runs(tmp_path: Path) -> None:
         str(query),
         "--output-dir",
         str(out_dir),
-        "--preference-only",
+        "--query-only",
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
     assert "output_file" in proc.stdout
+    assert "retrieval_mode" in proc.stdout
     assert (out_dir / "macf_eval_result.json").exists()

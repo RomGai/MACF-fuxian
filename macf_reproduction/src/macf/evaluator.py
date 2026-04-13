@@ -35,7 +35,7 @@ def _running_metrics(ranks: list[int | None]) -> dict[str, float]:
     return m
 
 
-def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str) -> dict:
+def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str, verbose_agent_trace: bool = False) -> dict:
     items = load_metadata_csv(metadata_csv)
     records = load_query_csv(query_csv)
     llm_backend = build_llm_backend(config.llm)
@@ -52,7 +52,13 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str) -> d
             top_k=config.macf.top_k,
             max_rounds=config.macf.max_rounds,
         )
-        state = run_discussion(state, tools, default_n=config.macf.default_n, llm_backend=llm_backend)
+        state = run_discussion(
+            state,
+            tools,
+            default_n=config.macf.default_n,
+            llm_backend=llm_backend,
+            verbose_agent_trace=verbose_agent_trace,
+        )
 
         ranked_ids = [x.item_id for x in state.final_ranked_items]
         rank = ranked_ids.index(rec.target_item_id) + 1 if rec.target_item_id in ranked_ids else None

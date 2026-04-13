@@ -32,11 +32,13 @@ python retrieval_baselines.py \
   --metadata amazon_beauty/metadata.csv \
   --query-data amazon_beauty/query_data1.csv \
   --output-dir amazon_beauty/baseline_eval_full_query_only \
-  --preference-only
+  --query-only
 ```
 
 说明：
 - 会实时打印处理进度与“已处理用户平均指标”（HR/NDCG @10/@20/@40）。
+- 检索模式固定为 query-only（query + metadata），不会走 preference-only 检索。
+- 默认会打印每轮 Agent 的行为输出（AgentTrace）；若想关闭可加 `--no-verbose-agent-trace`。
 - 结果会写入：`<output-dir>/macf_eval_result.json`。
 
 

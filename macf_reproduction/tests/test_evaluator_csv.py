@@ -25,7 +25,7 @@ def test_evaluate_from_csv_outputs_metrics(tmp_path: Path, capsys) -> None:
     )
 
     cfg = load_config("config/default.yaml")
-    result = evaluate_from_csv(cfg, query_csv=str(query), metadata_csv=str(metadata))
+    result = evaluate_from_csv(cfg, query_csv=str(query), metadata_csv=str(metadata), verbose_agent_trace=True)
     printed = capsys.readouterr().out
 
     assert result["num_cases"] == 2
@@ -34,3 +34,4 @@ def test_evaluate_from_csv_outputs_metrics(tmp_path: Path, capsys) -> None:
     assert len(result["details"]) == 2
     assert "[Progress] Processing user 1/2" in printed
     assert "AvgMetrics after 2 users" in printed
+    assert "[AgentTrace]" in printed
