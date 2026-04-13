@@ -10,7 +10,7 @@ class LLMConfig:
     model: str = "Qwen/Qwen3-8B"
     temperature: float = 0.3
     max_new_tokens: int = 1024
-    enable_thinking: bool = True
+    enable_thinking: bool = False
 
 
 @dataclass

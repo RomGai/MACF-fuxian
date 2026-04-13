@@ -17,35 +17,25 @@
 - 多轮讨论 `Tmax=5`
 - 最终推荐 `Top-K=10`
 
-## LLM Policy（已切换为 Qwen3-8B）
-- 默认配置已改为：
+## LLM Policy（Qwen3-8B，Think模式关闭）
+- 默认配置：
   - `provider: qwen_local`
   - `model: Qwen/Qwen3-8B`
   - `temperature: 0.3`
-  - `enable_thinking: true`
+  - `enable_thinking: false`
 - 对应实现：`src/macf/llm.py` 中 `QwenLocalBackend`。
 - 若环境缺少 `transformers/torch` 或模型不可下载，会自动回退到 deterministic fallback（保证流程可运行）。
 
-## 新增：适配 `amazon_beauty` 数据评测
-支持使用：
+## Amazon Beauty 评测（含实时进度和平均指标打印）
+支持：
 - `amazon_beauty/query_data1.csv`
 - `amazon_beauty/metadata.csv`
 
-流程：
-1. 读取 query 与用户历史交互物品；
-2. 在 metadata 全库上执行 agent 协作检索与排序；
-3. 计算 target 物品在 Top@10/20/40 的命中与位次；
-4. 输出 Hit Rate 与 NDCG。
+评测时会实时打印：
+1. 当前处理进度（第几个用户 / 总用户数）
+2. **已处理用户的平均** HR/NDCG（@10/@20/@40）
 
-## 运行
-
-### 1) Demo（内置 mock 数据）
-```bash
-cd macf_reproduction
-PYTHONPATH=src python -m macf.main --mode demo --config config/default.yaml --query "hydrating skincare for sensitive skin"
-```
-
-### 2) Amazon Beauty 评测
+## 可直接运行命令
 ```bash
 cd macf_reproduction
 PYTHONPATH=src python -m macf.main \
@@ -54,25 +44,6 @@ PYTHONPATH=src python -m macf.main \
   --query-csv amazon_beauty/query_data1.csv \
   --metadata-csv amazon_beauty/metadata.csv
 ```
-
-输出为结构化 JSON，包括：
-- `metrics.hit@10, metrics.ndcg@10`
-- `metrics.hit@20, metrics.ndcg@20`
-- `metrics.hit@40, metrics.ndcg@40`
-- 每条样本的 `rank`（target 排名，未命中为 null）
-
-## Qwen 官方调用对齐说明
-仓库中的 `QwenLocalBackend` 采用与官方示例一致的核心流程：
-- `AutoTokenizer.from_pretrained("Qwen/Qwen3-8B")`
-- `AutoModelForCausalLM.from_pretrained(..., torch_dtype="auto", device_map="auto")`
-- `apply_chat_template(..., enable_thinking=True)`
-- `model.generate(..., max_new_tokens=...)`
-- 兼容 `</think>` 分段解析（token id `151668`）
-
-## 说明：哪些是重建假设
-- prompt 的精确措辞
-- CSV 字段名兼容映射
-- 文本检索与相似度打分函数（token overlap）
 
 ## 测试
 ```bash

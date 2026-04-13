@@ -3,7 +3,7 @@ llm:
   model: Qwen/Qwen3-8B
   temperature: 0.3
   max_new_tokens: 1024
-  enable_thinking: true
+  enable_thinking: false
 
 macf:
   top_k: 10

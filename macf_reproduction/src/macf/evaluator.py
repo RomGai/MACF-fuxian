@@ -27,13 +27,23 @@ def _calc_metrics(ranks: list[int | None], k: int) -> dict[str, float]:
     return {f"hit@{k}": sum(hits) / n, f"ndcg@{k}": sum(ndcgs) / n}
 
 
+def _running_metrics(ranks: list[int | None]) -> dict[str, float]:
+    m: dict[str, float] = {}
+    m.update(_calc_metrics(ranks, 10))
+    m.update(_calc_metrics(ranks, 20))
+    m.update(_calc_metrics(ranks, 40))
+    return m
+
+
 def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str) -> dict:
     items = load_metadata_csv(metadata_csv)
     records = load_query_csv(query_csv)
     llm_backend = build_llm_backend(config.llm)
 
     rows: list[EvalRow] = []
-    for rec in records:
+    total = len(records)
+    for idx, rec in enumerate(records, start=1):
+        print(f"[Progress] Processing user {idx}/{total}: user_id={rec.user_id}")
         target_user = build_target_user(rec)
         tools = CSVRetrievalTools(items=items, query_records=records, current_target=target_user)
         state = MACFSessionState(
@@ -48,11 +58,18 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str) -> d
         rank = ranked_ids.index(rec.target_item_id) + 1 if rec.target_item_id in ranked_ids else None
         rows.append(EvalRow(user_id=rec.user_id, query=rec.query, target_item_id=rec.target_item_id, rank=rank))
 
-    ranks = [r.rank for r in rows]
-    metrics = {}
-    metrics.update(_calc_metrics(ranks, 10))
-    metrics.update(_calc_metrics(ranks, 20))
-    metrics.update(_calc_metrics(ranks, 40))
+        current_ranks = [r.rank for r in rows]
+        running = _running_metrics(current_ranks)
+        print(
+            "[Progress] AvgMetrics after "
+            f"{idx} users | "
+            f"HR@10={running['hit@10']:.4f}, NDCG@10={running['ndcg@10']:.4f}, "
+            f"HR@20={running['hit@20']:.4f}, NDCG@20={running['ndcg@20']:.4f}, "
+            f"HR@40={running['hit@40']:.4f}, NDCG@40={running['ndcg@40']:.4f}"
+        )
+
+    final_ranks = [r.rank for r in rows]
+    metrics = _running_metrics(final_ranks)
     return {
         "num_cases": len(rows),
         "metrics": metrics,
