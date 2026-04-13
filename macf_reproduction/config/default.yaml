@@ -1,0 +1,15 @@
+llm:
+  provider: qwen_local
+  model: Qwen/Qwen3-8B
+  temperature: 0.3
+  max_new_tokens: 1024
+  enable_thinking: true
+
+macf:
+  top_k: 10
+  max_rounds: 5
+  default_n: 5
+  default_k: 15
+
+logging:
+  level: INFO
