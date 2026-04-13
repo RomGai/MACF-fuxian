@@ -1,0 +1,13 @@
+llm:
+  provider: mock
+  model: gpt-4o
+  temperature: 0.3
+
+macf:
+  top_k: 10
+  max_rounds: 5
+  default_n: 5
+  default_k: 15
+
+logging:
+  level: INFO
