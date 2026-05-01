@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
+from time import perf_counter
 
 from .config import AppConfig
 from .data import build_target_user, load_metadata_csv, load_query_csv
@@ -18,6 +19,7 @@ class EvalRow:
     query: str
     target_item_id: str
     rank: int | None
+    elapsed_seconds: float
 
 
 def _calc_metrics(ranks: list[int | None], k: int) -> dict[str, float]:
@@ -44,6 +46,7 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str, verb
     total = len(records)
     for idx, rec in enumerate(records, start=1):
         print(f"[Progress] Processing user {idx}/{total}: user_id={rec.user_id}", flush=True)
+        start_time = perf_counter()
         target_user = build_target_user(rec)
         tools = CSVRetrievalTools(items=items, query_records=records, current_target=target_user)
         state = MACFSessionState(
@@ -62,7 +65,16 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str, verb
 
         ranked_ids = [x.item_id for x in state.final_ranked_items]
         rank = ranked_ids.index(rec.target_item_id) + 1 if rec.target_item_id in ranked_ids else None
-        rows.append(EvalRow(user_id=rec.user_id, query=rec.query, target_item_id=rec.target_item_id, rank=rank))
+        elapsed_seconds = perf_counter() - start_time
+        rows.append(
+            EvalRow(
+                user_id=rec.user_id,
+                query=rec.query,
+                target_item_id=rec.target_item_id,
+                rank=rank,
+                elapsed_seconds=elapsed_seconds,
+            )
+        )
 
         current_ranks = [r.rank for r in rows]
         running = _running_metrics(current_ranks)
@@ -71,15 +83,18 @@ def evaluate_from_csv(config: AppConfig, query_csv: str, metadata_csv: str, verb
             f"{idx} users | "
             f"HR@10={running['hit@10']:.4f}, NDCG@10={running['ndcg@10']:.4f}, "
             f"HR@20={running['hit@20']:.4f}, NDCG@20={running['ndcg@20']:.4f}, "
-            f"HR@40={running['hit@40']:.4f}, NDCG@40={running['ndcg@40']:.4f}",
+            f"HR@40={running['hit@40']:.4f}, NDCG@40={running['ndcg@40']:.4f} | "
+            f"query_time={elapsed_seconds:.3f}s",
             flush=True,
         )
 
     final_ranks = [r.rank for r in rows]
     metrics = _running_metrics(final_ranks)
+    avg_query_time = sum(r.elapsed_seconds for r in rows) / len(rows) if rows else 0.0
     return {
         "num_cases": len(rows),
         "metrics": metrics,
+        "avg_query_time_seconds": avg_query_time,
         "details": [r.__dict__ for r in rows],
     }
 

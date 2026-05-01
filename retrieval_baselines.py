@@ -69,6 +69,7 @@ def main() -> None:
         "top_k": cfg.macf.top_k,
         "metrics": result.get("metrics", {}),
         "num_cases": result.get("num_cases", 0),
+        "avg_query_time_seconds": result.get("avg_query_time_seconds", 0.0),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
